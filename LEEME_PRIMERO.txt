@@ -1,0 +1,265 @@
+# 📁 ESTRUCTURA DE CARPETAS - VERIFICACIÓN
+
+## ✅ Tu proyecto debe tener esta estructura EXACTA:
+
+```
+Gestor de Gastos\
+│
+├── backend\
+│   ├── middleware\
+│   │   └── auth.js
+│   ├── services\
+│   │   ├── exchangeRate.js
+│   │   └── ocr.js
+│   ├── database.js
+│   ├── package.json
+│   ├── server.js
+│   └── .env.example
+│
+├── frontend\
+│   ├── public\
+│   │   └── index.html          ← IMPORTANTE: Este archivo debe existir
+│   ├── src\
+│   │   ├── components\
+│   │   │   ├── AddExpense.js
+│   │   │   ├── Dashboard.js
+│   │   │   ├── ExpenseList.js
+│   │   │   ├── Login.js
+│   │   │   ├── Navbar.js
+│   │   │   ├── Register.js
+│   │   │   └── Reports.js
+│   │   ├── services\
+│   │   │   └── api.js
+│   │   ├── App.js
+│   │   ├── index.css
+│   │   └── index.js            ← IMPORTANTE: Este archivo debe existir
+│   └── package.json
+│
+├── README.md
+├── DEPLOYMENT.md
+├── QUICK_START.md
+└── LEEME_PRIMERO.txt            ← Este archivo
+```
+
+---
+
+## 🔍 VERIFICA QUE EXISTAN ESTOS ARCHIVOS CRÍTICOS:
+
+Abre el Explorador de Windows y verifica que existan:
+
+### En la carpeta `frontend\public\`:
+✅ **index.html** (debe existir)
+
+### En la carpeta `frontend\src\`:
+✅ **index.js** (debe existir)
+✅ **App.js** (debe existir)
+✅ **index.css** (debe existir)
+
+### En la carpeta `backend\`:
+✅ **server.js** (debe existir)
+✅ **database.js** (debe existir)
+✅ **package.json** (debe existir)
+
+---
+
+## 🚀 INSTALACIÓN PASO A PASO (WINDOWS)
+
+### PASO 1: Verificar Node.js
+
+Abre **CMD** o **PowerShell** y ejecuta:
+
+```bash
+node --version
+```
+
+Debe mostrar algo como: `v18.x.x` o `v16.x.x`
+
+Si no lo tienes, descárgalo de: https://nodejs.org
+
+---
+
+### PASO 2: Configurar Backend
+
+1. Abre **CMD** o **PowerShell**
+
+2. Ve a la carpeta backend:
+   ```bash
+   cd "E:\espin\Gestor de Gastos\backend"
+   ```
+
+3. Crea el archivo `.env` manualmente:
+   - Abre la carpeta `backend` en el Explorador de Windows
+   - Crea un nuevo archivo de texto llamado `.env` (sin .txt)
+   - Abre el archivo con Notepad
+   - Copia y pega esto:
+
+   ```
+   PORT=3001
+   JWT_SECRET=mi_secreto_super_seguro_123456
+   NODE_ENV=development
+   FRONTEND_URL=http://localhost:3000
+   ```
+
+   - Guarda el archivo
+
+4. Instala las dependencias:
+   ```bash
+   npm install
+   ```
+
+   Esto tomará unos minutos. Verás muchas líneas en la pantalla.
+
+---
+
+### PASO 3: Configurar Frontend
+
+1. En otra ventana de **CMD** o **PowerShell**, ve a la carpeta frontend:
+   ```bash
+   cd "E:\espin\Gestor de Gastos\frontend"
+   ```
+
+2. Crea el archivo `.env`:
+   - Abre la carpeta `frontend` en el Explorador de Windows
+   - Crea un nuevo archivo de texto llamado `.env`
+   - Abre el archivo con Notepad
+   - Copia y pega esto:
+
+   ```
+   REACT_APP_API_URL=http://localhost:3001/api
+   ```
+
+   - Guarda el archivo
+
+3. Instala las dependencias:
+   ```bash
+   npm install
+   ```
+
+   Esto también tomará unos minutos.
+
+---
+
+### PASO 4: Ejecutar la Aplicación
+
+Necesitas **DOS ventanas de CMD/PowerShell abiertas al mismo tiempo**:
+
+#### VENTANA 1 - Backend:
+```bash
+cd "E:\espin\Gestor de Gastos\backend"
+npm start
+```
+
+Verás: `Servidor ejecutándose en http://localhost:3001`
+
+**¡NO CIERRES ESTA VENTANA!** Déjala abierta.
+
+#### VENTANA 2 - Frontend:
+```bash
+cd "E:\espin\Gestor de Gastos\frontend"
+npm start
+```
+
+Verás: `Compiled successfully!` y se abrirá automáticamente tu navegador en `http://localhost:3000`
+
+**¡NO CIERRES ESTA VENTANA!** Déjala abierta.
+
+---
+
+## ✅ ¡LISTO!
+
+Si todo funcionó correctamente:
+- El navegador se abrió automáticamente
+- Ves la pantalla de Login/Registro
+- Puedes crear una cuenta y empezar a usar la aplicación
+
+---
+
+## 🐛 SOLUCIÓN DE PROBLEMAS
+
+### Error: "Could not find a required file: index.html"
+
+**Causa:** El archivo `frontend\public\index.html` no existe.
+
+**Solución:** 
+1. Verifica que la carpeta `frontend\public\` exista
+2. Verifica que dentro haya un archivo `index.html`
+3. Si no existe, avísame para enviarte el archivo
+
+---
+
+### Error: "Could not find a required file: index.js"
+
+**Causa:** El archivo `frontend\src\index.js` no existe.
+
+**Solución:**
+1. Verifica que la carpeta `frontend\src\` exista
+2. Verifica que dentro haya un archivo `index.js`
+3. Si no existe, avísame para enviarte el archivo
+
+---
+
+### Error: "Cannot find module 'express'"
+
+**Causa:** No se instalaron las dependencias del backend.
+
+**Solución:**
+```bash
+cd "E:\espin\Gestor de Gastos\backend"
+npm install
+```
+
+---
+
+### Error: "npm: command not found" o "npm no se reconoce"
+
+**Causa:** Node.js no está instalado o no está en el PATH.
+
+**Solución:**
+1. Descarga Node.js de: https://nodejs.org
+2. Instálalo (asegúrate de marcar "Add to PATH")
+3. Cierra y vuelve a abrir CMD/PowerShell
+4. Verifica con: `node --version`
+
+---
+
+### El backend no inicia
+
+**Verifica:**
+1. Que existe el archivo `backend\.env`
+2. Que el puerto 3001 no esté en uso
+3. Mira los errores en la consola
+
+---
+
+### El frontend no inicia
+
+**Verifica:**
+1. Que exista `frontend\public\index.html`
+2. Que exista `frontend\src\index.js`
+3. Que hayas ejecutado `npm install` en la carpeta frontend
+
+---
+
+## 📞 ¿NECESITAS AYUDA?
+
+Si encuentras algún error que no está aquí:
+
+1. Copia el mensaje de error completo
+2. Dime en qué paso estabas
+3. Te ayudaré a resolverlo
+
+---
+
+## 🎯 PRÓXIMOS PASOS
+
+Una vez que la aplicación esté funcionando:
+
+1. **Regístrate** con tu email
+2. **Agrega un gasto** de prueba
+3. **Sube una factura** con imagen
+4. **Explora el dashboard** y reportes
+5. **Lee README.md** para más información
+
+---
+
+¡Éxito! 🚀
