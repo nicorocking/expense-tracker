@@ -180,28 +180,37 @@ app.post('/api/expenses', authenticateToken, upload.single('image'), async (req,
     
     // Si hay imagen, procesarla con OCR
     if (req.file) {
-      console.log('Processing image with OCR...');
+      console.log('Processing image with AI OCR...');
       ocrData = await processInvoiceImage(req.file.path);
       
       if (ocrData) {
-        console.log('OCR data extracted:', ocrData);
+        console.log('AI OCR data extracted:', ocrData);
         
         // Usar datos extraídos SOLO si no se proporcionaron manualmente
         if (!amount && ocrData.amount) {
           amount = ocrData.amount;
-          console.log('Using OCR amount:', amount);
+          console.log('Using AI amount:', amount);
         }
         if (!date && ocrData.date) {
           date = ocrData.date;
-          console.log('Using OCR date:', date);
+          console.log('Using AI date:', date);
         }
         if (!cuit && ocrData.cuit) {
           cuit = ocrData.cuit;
-          console.log('Using OCR CUIT:', cuit);
+          console.log('Using AI CUIT:', cuit);
         }
         if (!items && ocrData.items) {
           items = ocrData.items;
-          console.log('Using OCR items:', items.substring(0, 50));
+          console.log('Using AI items:', items.substring(0, 50));
+        }
+        // Si la AI sugiere una categoría y el usuario no la cambió
+        if (ocrData.category && type === 'food') { // 'food' es el default
+          type = ocrData.category;
+          console.log('Using AI category:', type);
+        }
+        // Agregar vendor al comentario si existe
+        if (ocrData.vendor && !comment) {
+          comment = `Comercio: ${ocrData.vendor}`;
         }
       }
     }

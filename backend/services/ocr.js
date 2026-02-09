@@ -1,84 +1,117 @@
-const Tesseract = require('tesseract.js');
-const sharp = require('sharp');
 const fs = require('fs');
+const axios = require('axios');
 
-// Pool de workers para OCR más rápido
-let ocrWorker = null;
-
-async function initOCRWorker() {
-  if (!ocrWorker) {
-    try {
-      ocrWorker = await Tesseract.createWorker('spa', 1, {
-        logger: m => {
-          if (m.status === 'recognizing text') {
-            console.log(`OCR Progress: ${Math.round(m.progress * 100)}%`);
-          }
-        }
-      });
-      console.log('OCR Worker initialized');
-    } catch (error) {
-      console.error('Error initializing OCR worker:', error);
-      ocrWorker = null;
-    }
-  }
-  return ocrWorker;
-}
-
+// Usar OpenAI Vision API para extracción inteligente
 async function processInvoiceImage(imagePath) {
   try {
-    console.log(`Processing invoice image: ${imagePath}`);
+    console.log(`Processing invoice image with OpenAI Vision: ${imagePath}`);
     
     // Verificar que el archivo existe
     if (!fs.existsSync(imagePath)) {
       console.error('Image file not found:', imagePath);
-      return null;
-    }
-
-    // Preprocesar imagen para mejor OCR
-    const processedImagePath = imagePath.replace(/\.[^.]+$/, '_processed.jpg');
-    
-    await sharp(imagePath)
-      .resize(2000, 2000, { fit: 'inside', withoutEnlargement: true })
-      .greyscale()
-      .normalize()
-      .sharpen()
-      .toFile(processedImagePath);
-
-    console.log('Image preprocessed, starting OCR...');
-
-    // Inicializar worker si no existe
-    const worker = await initOCRWorker();
-    
-    if (!worker) {
-      console.error('OCR worker not available, using fallback');
       return getFallbackData();
     }
 
-    // Realizar OCR con timeout
-    const ocrPromise = worker.recognize(processedImagePath);
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('OCR timeout')), 30000)
-    );
-
-    const { data: { text } } = await Promise.race([ocrPromise, timeoutPromise]);
-
-    console.log('OCR completed, extracted text length:', text.length);
-
-    // Limpiar archivo procesado
-    try {
-      fs.unlinkSync(processedImagePath);
-    } catch (e) {
-      console.error('Error deleting processed image:', e.message);
+    // Verificar que existe la API key
+    if (!process.env.OPENAI_API_KEY) {
+      console.warn('OPENAI_API_KEY not configured, using fallback OCR');
+      return getFallbackData();
     }
 
-    // Extraer información relevante
-    const extractedData = extractInvoiceData(text);
+    // Leer imagen y convertir a base64
+    const imageBuffer = fs.readFileSync(imagePath);
+    const base64Image = imageBuffer.toString('base64');
+    const mimeType = imagePath.endsWith('.png') ? 'image/png' : 'image/jpeg';
+
+    console.log('Calling OpenAI Vision API...');
+
+    // Llamar a OpenAI Vision API
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: `Analiza esta factura o ticket y extrae la siguiente información en formato JSON:
+{
+  "amount": número del monto total (solo el número, sin símbolos),
+  "date": fecha en formato YYYY-MM-DD,
+  "cuit": CUIT o CUIL si está presente (formato XX-XXXXXXXX-X),
+  "items": descripción breve de los productos o servicios (máximo 200 caracteres),
+  "category": categoría sugerida (hairdresser, food, services, mobility, residence, diapers),
+  "vendor": nombre del comercio o vendedor
+}
+
+IMPORTANTE: 
+- Si no encuentras algún dato, usa null
+- El monto debe ser solo el número (ejemplo: 1234.56)
+- La fecha debe ser YYYY-MM-DD
+- Para items, resume lo principal
+- Responde SOLO con el JSON, sin texto adicional`
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:${mimeType};base64,${base64Image}`
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 500,
+        temperature: 0.1
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000
+      }
+    );
+
+    const content = response.data.choices[0].message.content;
+    console.log('OpenAI response:', content);
+
+    // Parsear respuesta JSON
+    let extractedData;
+    try {
+      // Limpiar posibles markdown
+      const jsonStr = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      extractedData = JSON.parse(jsonStr);
+    } catch (parseError) {
+      console.error('Error parsing OpenAI response:', parseError);
+      return getFallbackData();
+    }
+
+    // Validar y formatear datos
+    const validatedData = {
+      amount: extractedData.amount ? parseFloat(extractedData.amount) : null,
+      date: extractedData.date || new Date().toISOString().split('T')[0],
+      cuit: extractedData.cuit || null,
+      items: extractedData.items || '',
+      category: extractedData.category || null,
+      vendor: extractedData.vendor || null
+    };
+
+    console.log('Validated data:', validatedData);
     
-    console.log('Extracted data:', extractedData);
-    
-    return extractedData;
+    return validatedData;
+
   } catch (error) {
-    console.error('Error procesando imagen:', error.message);
+    console.error('Error processing image with OpenAI:', error.message);
+    
+    // Si falla OpenAI, usar fallback
+    if (error.response?.status === 401) {
+      console.error('Invalid OpenAI API key');
+    } else if (error.response?.status === 429) {
+      console.error('OpenAI rate limit exceeded');
+    }
+    
     return getFallbackData();
   }
 }
@@ -88,138 +121,44 @@ function getFallbackData() {
     amount: null,
     date: new Date().toISOString().split('T')[0],
     cuit: null,
-    items: ''
+    items: '',
+    category: null,
+    vendor: null
   };
 }
 
-function extractInvoiceData(text) {
-  console.log('Extracting data from OCR text...');
+
+// Función auxiliar para validar datos extraídos
+function validateExtractedData(data) {
+  const validated = { ...data };
   
-  const data = {
-    amount: null,
-    date: null,
-    cuit: null,
-    items: ''
-  };
-
-  // Buscar monto - Mejorado para Argentina
-  // Formatos: $1.234,56 | $ 1234.56 | 1234,56 | TOTAL: 1234
-  const amountPatterns = [
-    /(?:total|importe|monto|suma|pagar)[\s:$]*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})/gi,
-    /\$\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})/g,
-    /(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})/g
-  ];
-
-  let amounts = [];
-  for (const pattern of amountPatterns) {
-    const matches = text.match(pattern);
-    if (matches && matches.length > 0) {
-      amounts = amounts.concat(matches);
-      break;
+  // Validar monto
+  if (validated.amount) {
+    const amount = parseFloat(validated.amount);
+    if (isNaN(amount) || amount <= 0 || amount > 10000000) {
+      validated.amount = null;
+    } else {
+      validated.amount = amount;
     }
   }
-
-  if (amounts.length > 0) {
-    const cleanedAmounts = amounts.map(a => {
-      // Extraer solo los números
-      const numStr = a.match(/(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})/);
-      if (numStr) {
-        // Convertir formato argentino (1.234,56) a decimal (1234.56)
-        return parseFloat(
-          numStr[1]
-            .replace(/\./g, '')  // quitar puntos de miles
-            .replace(/,/g, '.')  // coma decimal a punto
-        );
-      }
-      return 0;
-    }).filter(n => n > 0 && n < 1000000); // filtrar valores razonables
-
-    if (cleanedAmounts.length > 0) {
-      data.amount = Math.max(...cleanedAmounts);
-      console.log('Amount found:', data.amount);
+  
+  // Validar fecha
+  if (validated.date) {
+    const dateObj = new Date(validated.date);
+    if (isNaN(dateObj.getTime())) {
+      validated.date = new Date().toISOString().split('T')[0];
     }
   }
-
-  // Buscar fecha - Mejorado
-  // Formatos: DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY
-  const datePatterns = [
-    /(?:fecha|date)[\s:]*(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})/i,
-    /(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{4})/,
-    /(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2})/
-  ];
-
-  for (const pattern of datePatterns) {
-    const dateMatch = text.match(pattern);
-    if (dateMatch) {
-      const day = dateMatch[1].padStart(2, '0');
-      const month = dateMatch[2].padStart(2, '0');
-      let year = dateMatch[3];
-      
-      if (year.length === 2) {
-        year = '20' + year;
-      }
-      
-      // Validar fecha
-      const dateObj = new Date(`${year}-${month}-${day}`);
-      if (!isNaN(dateObj.getTime())) {
-        data.date = `${year}-${month}-${day}`;
-        console.log('Date found:', data.date);
-        break;
-      }
-    }
+  
+  // Validar CUIT
+  if (validated.cuit && !validated.cuit.match(/^\d{2}-\d{8}-\d{1}$/)) {
+    validated.cuit = null;
   }
-
-  // Si no se encontró fecha, usar hoy
-  if (!data.date) {
-    data.date = new Date().toISOString().split('T')[0];
-  }
-
-  // Buscar CUIT/CUIL - Mejorado
-  // Formato: XX-XXXXXXXX-X o variaciones
-  const cuitPatterns = [
-    /(?:cuit|cuil|dni)[\s:]*(\d{2})[- ]?(\d{8})[- ]?(\d{1})/i,
-    /(\d{2})[- ](\d{8})[- ](\d{1})/
-  ];
-
-  for (const pattern of cuitPatterns) {
-    const cuitMatch = text.match(pattern);
-    if (cuitMatch) {
-      data.cuit = `${cuitMatch[1]}-${cuitMatch[2]}-${cuitMatch[3]}`;
-      console.log('CUIT found:', data.cuit);
-      break;
-    }
-  }
-
-  // Extraer items - líneas relevantes
-  const lines = text.split('\n')
-    .map(line => line.trim())
-    .filter(line => {
-      // Filtrar líneas que parecen productos/servicios
-      return line.length > 3 && 
-             line.length < 100 &&
-             !line.match(/^[\d\s\-\.\,\/]+$/) && // no solo números
-             !line.toLowerCase().includes('cuit') &&
-             !line.toLowerCase().includes('total');
-    });
-
-  // Tomar las líneas más probables (máximo 5)
-  const relevantLines = lines.slice(0, 5);
-  if (relevantLines.length > 0) {
-    data.items = relevantLines.join('; ');
-    console.log('Items found:', data.items.substring(0, 100));
-  }
-
-  return data;
+  
+  return validated;
 }
 
 module.exports = {
   processInvoiceImage,
-  extractInvoiceData,
-  initOCRWorker,
-  terminateOCR: async () => {
-    if (ocrWorker) {
-      await ocrWorker.terminate();
-      ocrWorker = null;
-    }
-  }
+  validateExtractedData
 };

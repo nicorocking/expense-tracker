@@ -59,7 +59,9 @@ function AddExpense() {
           amount: extracted.amount || prev.amount,
           date: extracted.date || prev.date,
           cuit: extracted.cuit || prev.cuit,
-          items: extracted.items || prev.items
+          items: extracted.items || prev.items,
+          type: extracted.category || prev.type, // Usar categoría sugerida por AI
+          comment: extracted.vendor ? `Comercio: ${extracted.vendor}` : prev.comment
         }));
 
         setImagePath(response.data.imagePath);
@@ -69,9 +71,11 @@ function AddExpense() {
         if (extracted.date) foundData.push('fecha');
         if (extracted.cuit) foundData.push('CUIT');
         if (extracted.items) foundData.push('items');
+        if (extracted.category) foundData.push('categoría');
+        if (extracted.vendor) foundData.push('comercio');
 
         if (foundData.length > 0) {
-          setOcrMessage(`✓ Datos extraídos: ${foundData.join(', ')}. Puedes editarlos antes de guardar.`);
+          setOcrMessage(`✓ Datos extraídos con IA: ${foundData.join(', ')}. Puedes editarlos antes de guardar.`);
         } else {
           setOcrMessage('⚠ No se pudieron extraer datos automáticamente. Completa el formulario manualmente.');
         }
