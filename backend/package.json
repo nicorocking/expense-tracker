@@ -15,7 +15,8 @@
     "multer": "^1.4.5-lts.1",
     "sqlite3": "^5.1.6",
     "dotenv": "^16.3.1",
-    "axios": "^1.6.2"
+    "axios": "^1.6.2",
+    "sharp": "^0.33.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
