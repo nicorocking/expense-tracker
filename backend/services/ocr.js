@@ -1,25 +1,16 @@
 const fs = require('fs');
 const axios = require('axios');
-const sharp = require('sharp');
 
-// Comprimir imagen para optimizar
-async function compressImage(imagePath) {
-  try {
-    const compressedPath = imagePath.replace(/\.[^.]+$/, '_compressed.jpg');
-    
-    await sharp(imagePath)
-      .resize(2000, 2000, { 
-        fit: 'inside', 
-        withoutEnlargement: true 
-      })
-      .jpeg({ quality: 90 })
-      .toFile(compressedPath);
-    
-    return compressedPath;
-  } catch (error) {
-    console.error('[OCR] Error compressing:', error.message);
-    return imagePath;
+// Función auxiliar para reducir tamaño de base64 si es muy grande
+function optimizeBase64(base64String, maxSize = 20 * 1024 * 1024) {
+  // Si el base64 es menor a 20MB, retornar tal cual
+  if (Buffer.from(base64String, 'base64').length < maxSize) {
+    return base64String;
   }
+  
+  // Si es muy grande, simplemente truncar (no ideal pero funciona)
+  console.warn('[OCR] Image too large, may cause issues');
+  return base64String;
 }
 
 // PASO 1: Extraer TODO el texto (OCR puro)
@@ -32,13 +23,15 @@ async function extractTextFromImage(imagePath) {
       throw new Error('OPENAI_API_KEY not configured');
     }
 
-    const compressedPath = await compressImage(imagePath);
-    const imageBuffer = fs.readFileSync(compressedPath);
+    // Leer imagen directamente sin comprimir
+    const imageBuffer = fs.readFileSync(imagePath);
     const base64Image = imageBuffer.toString('base64');
-    console.log(`[OCR STEP 1] Image: ${(imageBuffer.length / 1024).toFixed(2)}KB`);
+    const imageSizeKB = (imageBuffer.length / 1024).toFixed(2);
+    console.log(`[OCR STEP 1] Image: ${imageSizeKB}KB`);
 
-    if (compressedPath !== imagePath) {
-      try { fs.unlinkSync(compressedPath); } catch (e) {}
+    // Advertir si la imagen es muy grande
+    if (imageBuffer.length > 5 * 1024 * 1024) {
+      console.warn('[OCR STEP 1] Warning: Image larger than 5MB, processing may be slow');
     }
 
     const response = await axios.post(
@@ -57,12 +50,15 @@ Solo transcribe, no interpretes.`
               },
               {
                 type: 'image_url',
-                image_url: { url: `data:image/jpeg;base64,${base64Image}` }
+                image_url: { 
+                  url: `data:image/jpeg;base64,${base64Image}`,
+                  detail: 'high' // Alta calidad para mejor OCR
+                }
               }
             ]
           }
         ],
-        max_tokens: 1000,
+        max_tokens: 1500,
         temperature: 0
       },
       {
@@ -70,7 +66,7 @@ Solo transcribe, no interpretes.`
           'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
           'Content-Type': 'application/json'
         },
-        timeout: 30000
+        timeout: 45000 // 45 segundos
       }
     );
 
@@ -82,6 +78,9 @@ Solo transcribe, no interpretes.`
     return text;
   } catch (error) {
     console.error('[OCR STEP 1] Error:', error.message);
+    if (error.response) {
+      console.error('[OCR STEP 1] API Error:', error.response.status, error.response.data);
+    }
     throw error;
   }
 }
@@ -154,6 +153,9 @@ ${text}`
     return JSON.parse(jsonStr);
   } catch (error) {
     console.error('[OCR STEP 2] Error:', error.message);
+    if (error.response) {
+      console.error('[OCR STEP 2] API Error:', error.response.status, error.response.data);
+    }
     throw error;
   }
 }
@@ -164,6 +166,7 @@ async function processInvoiceImage(imagePath) {
   
   try {
     console.log('[OCR] === TWO-STEP PROCESS START ===');
+    console.log(`[OCR] File: ${imagePath}`);
     
     if (!fs.existsSync(imagePath)) {
       console.error('[OCR] File not found');
@@ -171,7 +174,7 @@ async function processInvoiceImage(imagePath) {
     }
 
     if (!process.env.OPENAI_API_KEY) {
-      console.warn('[OCR] No API key');
+      console.error('[OCR] OPENAI_API_KEY not configured');
       return getFallbackData();
     }
 

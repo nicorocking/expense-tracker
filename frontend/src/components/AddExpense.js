@@ -60,7 +60,7 @@ function AddExpense() {
           date: extracted.date || prev.date,
           cuit: extracted.cuit || prev.cuit,
           items: extracted.items || prev.items,
-          type: extracted.category || prev.type, // Usar categoría sugerida por AI
+          type: extracted.category || prev.type,
           comment: extracted.vendor ? `Comercio: ${extracted.vendor}` : prev.comment
         }));
 
@@ -74,8 +74,24 @@ function AddExpense() {
         if (extracted.category) foundData.push('categoría');
         if (extracted.vendor) foundData.push('comercio');
 
+        // Mostrar confianza si está disponible
+        let confidenceMsg = '';
+        if (extracted.confidence) {
+          const conf = extracted.confidence;
+          const avgConf = Math.round(
+            ((conf.amount || 0) + (conf.date || 0) + (conf.category || 0)) / 3
+          );
+          if (avgConf >= 80) {
+            confidenceMsg = ` (Confianza: ${avgConf}% ✓)`;
+          } else if (avgConf >= 50) {
+            confidenceMsg = ` (Confianza: ${avgConf}% - Verifica los datos)`;
+          } else {
+            confidenceMsg = ` (Confianza: ${avgConf}% - Revisa cuidadosamente)`;
+          }
+        }
+
         if (foundData.length > 0) {
-          setOcrMessage(`✓ Datos extraídos con IA: ${foundData.join(', ')}. Puedes editarlos antes de guardar.`);
+          setOcrMessage(`✓ Datos extraídos con IA (2 pasos): ${foundData.join(', ')}${confidenceMsg}. Puedes editarlos antes de guardar.`);
         } else {
           setOcrMessage('⚠ No se pudieron extraer datos automáticamente. Completa el formulario manualmente.');
         }
