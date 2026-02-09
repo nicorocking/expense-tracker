@@ -137,27 +137,90 @@ app.post('/api/auth/login', (req, res) => {
 
 // ==================== RUTAS DE GASTOS ====================
 
+// Endpoint para procesar imagen y extraer datos (OCR)
+app.post('/api/ocr/process', authenticateToken, upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No se proporcionó ninguna imagen' });
+    }
+
+    console.log('Processing OCR for:', req.file.filename);
+
+    // Procesar imagen con OCR
+    const ocrData = await processInvoiceImage(req.file.path);
+
+    // Devolver datos extraídos y la URL de la imagen
+    res.json({
+      success: true,
+      imagePath: `/uploads/${req.file.filename}`,
+      extractedData: ocrData || {
+        amount: null,
+        date: new Date().toISOString().split('T')[0],
+        cuit: null,
+        items: ''
+      }
+    });
+  } catch (error) {
+    console.error('Error en OCR:', error);
+    res.status(500).json({ 
+      error: 'Error al procesar la imagen',
+      imagePath: req.file ? `/uploads/${req.file.filename}` : null
+    });
+  }
+});
+
 // Crear gasto con imagen
 app.post('/api/expenses', authenticateToken, upload.single('image'), async (req, res) => {
   try {
     let { type, amount, currency, country, date, cuit, items, comment } = req.body;
     
+    console.log('Creating expense, file:', req.file ? req.file.filename : 'none');
+    
+    let ocrData = null;
+    
     // Si hay imagen, procesarla con OCR
     if (req.file) {
-      const ocrData = await processInvoiceImage(req.file.path);
+      console.log('Processing image with OCR...');
+      ocrData = await processInvoiceImage(req.file.path);
       
       if (ocrData) {
-        // Usar datos extraídos si no se proporcionaron manualmente
-        amount = amount || ocrData.amount;
-        date = date || ocrData.date;
-        cuit = cuit || ocrData.cuit;
-        items = items || ocrData.items;
+        console.log('OCR data extracted:', ocrData);
+        
+        // Usar datos extraídos SOLO si no se proporcionaron manualmente
+        if (!amount && ocrData.amount) {
+          amount = ocrData.amount;
+          console.log('Using OCR amount:', amount);
+        }
+        if (!date && ocrData.date) {
+          date = ocrData.date;
+          console.log('Using OCR date:', date);
+        }
+        if (!cuit && ocrData.cuit) {
+          cuit = ocrData.cuit;
+          console.log('Using OCR CUIT:', cuit);
+        }
+        if (!items && ocrData.items) {
+          items = ocrData.items;
+          console.log('Using OCR items:', items.substring(0, 50));
+        }
       }
     }
 
+    // Si aún faltan datos críticos, usar valores por defecto
+    if (!date) {
+      date = new Date().toISOString().split('T')[0];
+    }
+
     // Validaciones
-    if (!type || !amount || !date) {
-      return res.status(400).json({ error: 'Tipo, monto y fecha son requeridos' });
+    if (!type) {
+      return res.status(400).json({ error: 'El tipo de gasto es requerido' });
+    }
+    
+    if (!amount) {
+      return res.status(400).json({ 
+        error: 'El monto es requerido. No se pudo extraer de la imagen automáticamente.',
+        ocrData: ocrData 
+      });
     }
 
     // Obtener tasas de cambio del día
@@ -188,15 +251,19 @@ app.post('/api/expenses', authenticateToken, upload.single('image'), async (req,
           return res.status(500).json({ error: 'Error al crear el gasto' });
         }
 
+        console.log('Expense created successfully, ID:', this.lastID);
+
         res.status(201).json({
           message: 'Gasto creado exitosamente',
-          id: this.lastID
+          id: this.lastID,
+          ocrData: ocrData,
+          usedOCR: ocrData ? true : false
         });
       }
     );
   } catch (error) {
     console.error('Error creando gasto:', error);
-    res.status(500).json({ error: 'Error en el servidor' });
+    res.status(500).json({ error: 'Error en el servidor: ' + error.message });
   }
 });
 
