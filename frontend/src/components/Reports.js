@@ -36,11 +36,13 @@ function Reports() {
 
   const categoryLabels = {
     'hairdresser': 'Peluquería',
-    'food': 'Comida',
+    'food': 'Alimentación',
     'services': 'Servicios',
     'mobility': 'Movilidad',
     'residence': 'Residencia',
-    'diapers': 'Pañales'
+    'diapers': 'Pañales',
+    'entertainment': 'Ocio y Entretenimiento',
+    'health': 'Salud'
   };
 
   const COLORS = ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b', '#fa709a'];

@@ -40,13 +40,26 @@ async function extractTextFromImage(imagePath) {
         model: 'gpt-4o',
         messages: [
           {
+            role: 'system',
+            content: 'Eres un sistema OCR profesional que extrae texto de documentos comerciales (facturas, tickets, recibos). Tu única tarea es transcribir TODO el texto visible sin juzgar ni rechazar ninguna imagen de documento comercial.'
+          },
+          {
             role: 'user',
             content: [
               {
                 type: 'text',
-                text: `Extrae TODO el texto de esta factura/ticket, línea por línea.
-Incluye: números, palabras, fechas, montos, productos, comercio, CUIT, todo.
-Solo transcribe, no interpretes.`
+                text: `Extrae TODO el texto visible en este documento comercial (factura/ticket/recibo).
+
+Incluye absolutamente todo:
+- Números, cantidades, montos
+- Palabras, nombres de productos/servicios
+- Fechas, horas
+- Nombre del comercio/empresa
+- CUIT, RUT, DNI
+- Cualquier otro texto visible
+
+Transcribe línea por línea, exactamente como aparece.
+NO interpretes, solo transcribe el texto.`
               },
               {
                 type: 'image_url',
@@ -71,6 +84,17 @@ Solo transcribe, no interpretes.`
     );
 
     const text = response.data.choices[0].message.content.trim();
+    
+    // Detectar si OpenAI rechazó la imagen
+    if (text.toLowerCase().includes('lo siento') || 
+        text.toLowerCase().includes('no puedo') ||
+        text.toLowerCase().includes('cannot') ||
+        text.length < 50) {
+      console.warn('[OCR STEP 1] OpenAI refused or failed to extract text');
+      console.warn('[OCR STEP 1] Response:', text);
+      throw new Error('OpenAI could not process this image');
+    }
+    
     console.log(`[OCR STEP 1] Done in ${Date.now() - startTime}ms (${text.length} chars)`);
     console.log('--- EXTRACTED TEXT ---');
     console.log(text);
@@ -108,11 +132,13 @@ REGLAS PARA MONTOS:
 
 CATEGORÍAS:
 - hairdresser: peluquerías, salones, barberías
-- food: supermercados, restaurantes, delivery
-- services: luz, gas, agua, internet, seguros
-- mobility: combustible, Uber, taxi, peajes
-- residence: alquiler, expensas
-- diapers: pañales, productos bebé
+- food: supermercados, almacenes, restaurantes, delivery, comida
+- services: luz, gas, agua, internet, seguros, telefonía
+- mobility: combustible, Uber, taxi, peajes, transporte
+- residence: alquiler, expensas, mantenimiento hogar
+- diapers: pañales, productos bebé, farmacia bebés
+- entertainment: cine, teatro, streaming, juegos, hobbies
+- health: médicos, medicamentos, clínica, hospital, salud
 
 Responde SOLO JSON.`
           },
@@ -251,7 +277,7 @@ function validateExtractedData(data) {
     }
   }
 
-  const validCategories = ['hairdresser', 'food', 'services', 'mobility', 'residence', 'diapers'];
+  const validCategories = ['hairdresser', 'food', 'services', 'mobility', 'residence', 'diapers', 'entertainment', 'health'];
   if (validated.category && !validCategories.includes(validated.category)) {
     validated.category = null;
   }

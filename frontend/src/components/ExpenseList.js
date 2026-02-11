@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getExpenses, deleteExpense, getCurrentRates } from '../services/api';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL ? process.env.REACT_APP_API_URL.replace('/api', '') : 'http://localhost:3001';
+
 function ExpenseList() {
   const [expenses, setExpenses] = useState([]);
   const [rates, setRates] = useState({ usdToArs: 1000, uyuToArs: 25 });
@@ -86,11 +88,13 @@ function ExpenseList() {
 
   const categoryLabels = {
     'hairdresser': 'Peluquería',
-    'food': 'Comida',
+    'food': 'Alimentación',
     'services': 'Servicios',
     'mobility': 'Movilidad',
     'residence': 'Residencia',
-    'diapers': 'Pañales'
+    'diapers': 'Pañales',
+    'entertainment': 'Ocio y Entretenimiento',
+    'health': 'Salud'
   };
 
   if (loading) {
@@ -264,11 +268,26 @@ function ExpenseList() {
             {selectedExpense.image_path && (
               <div style={{ marginBottom: '15px' }}>
                 <strong>Factura:</strong>
-                <img
-                  src={`http://localhost:3001${selectedExpense.image_path}`}
-                  alt="Factura"
-                  style={{ width: '100%', marginTop: '10px', borderRadius: '8px' }}
-                />
+                <div style={{ marginTop: '10px' }}>
+                  <img
+                    src={`${API_BASE_URL}${selectedExpense.image_path}`}
+                    alt="Factura"
+                    style={{ 
+                      width: '100%', 
+                      maxHeight: '500px',
+                      objectFit: 'contain',
+                      borderRadius: '8px',
+                      border: '1px solid #ddd'
+                    }}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'block';
+                    }}
+                  />
+                  <div style={{ display: 'none', padding: '20px', background: '#fee', borderRadius: '8px', color: '#c33' }}>
+                    ⚠️ Imagen no disponible. Puede haberse eliminado del servidor.
+                  </div>
+                </div>
               </div>
             )}
 

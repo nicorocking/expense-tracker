@@ -34,11 +34,13 @@ function Dashboard() {
 
   const categoryLabels = {
     'hairdresser': 'Peluquería',
-    'food': 'Comida',
+    'food': 'Alimentación',
     'services': 'Servicios',
     'mobility': 'Movilidad',
     'residence': 'Residencia',
-    'diapers': 'Pañales'
+    'diapers': 'Pañales',
+    'entertainment': 'Ocio y Entretenimiento',
+    'health': 'Salud'
   };
 
   return (

@@ -121,6 +121,9 @@ function AddExpense() {
       setImagePreview(URL.createObjectURL(file));
       await processImageWithOCR(file);
     }
+    
+    // IMPORTANTE: Reset del input para permitir subir la misma imagen o una nueva
+    e.target.value = '';
   };
 
   const handleDrag = (e) => {
@@ -207,11 +210,13 @@ function AddExpense() {
 
   const expenseTypes = [
     { value: 'hairdresser', label: 'Peluquería' },
-    { value: 'food', label: 'Comida' },
+    { value: 'food', label: 'Alimentación' },
     { value: 'services', label: 'Servicios' },
     { value: 'mobility', label: 'Movilidad' },
     { value: 'residence', label: 'Residencia' },
-    { value: 'diapers', label: 'Pañales' }
+    { value: 'diapers', label: 'Pañales' },
+    { value: 'entertainment', label: 'Ocio y Entretenimiento' },
+    { value: 'health', label: 'Salud' }
   ];
 
   return (
